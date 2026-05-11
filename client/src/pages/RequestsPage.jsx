@@ -291,35 +291,59 @@ export function RequestsPage() {
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Created</th>
-              {isStaff && <th className="px-4 py-3 text-right">Actions</th>}
+              {isStaff && <th className="px-4 py-3 text-right">download</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {items.map((r) => (
-              <tr key={r.id}>
-                <td className="px-4 py-3 font-medium">{r.beneficiaries?.name || '—'}</td>
-                <td className="px-4 py-3">{r.attestation_types?.name || '—'}</td>
-                <td className="px-4 py-3 capitalize">{r.status.replace('_', ' ')}</td>
-                <td className="px-4 py-3 text-slate-500">{new Date(r.created_at).toLocaleString()}</td>
-                {isStaff && (
-                  <td className="px-4 py-3 text-right">
-                    {['pending', 'on_hold'].includes(r.status) && (
-                      <div className="flex justify-end gap-1">
-                        <button type="button" title="Approve" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30" onClick={() => approve(r.id)}>
-                          <CheckCircle2 className="h-4 w-4" />
-                        </button>
-                        <button type="button" title="Hold" className="rounded-lg p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30" onClick={() => hold(r.id)}>
-                          <PauseCircle className="h-4 w-4" />
-                        </button>
-                        <button type="button" title="Reject" className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => reject(r.id)}>
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
+            {items.map((r) => {
+              const colors = getStatusColor(r.status);
+              return (
+                <tr key={r.id} className={colors.bg}>
+                  <td className="px-4 py-3 font-medium">{r.beneficiaries?.name || '—'}</td>
+                  <td className="px-4 py-3">{r.attestation_types?.name || '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="space-y-2">
+                      <span className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${colors.badge} ${colors.text}`}>
+                        {r.status === 'on_hold' ? 'On Hold' : r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' ')}
+                      </span>
+                      {r.status === 'rejected' && r.rejection_reason && (
+                        <p className={`text-xs ${colors.text}`}>
+                          <span className="font-semibold">Reason:</span> {r.rejection_reason}
+                        </p>
+                      )}
+                    </div>
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td className="px-4 py-3 text-slate-500">{new Date(r.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-1">
+                      {r.status === 'approved' && (
+                        <button
+                          type="button"
+                          title="Download"
+                          className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                          onClick={() => downloadAttestation(r.id)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      )}
+                      {isStaff && ['pending', 'on_hold'].includes(r.status) && (
+                        <>
+                          <button type="button" title="Approve" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30" onClick={() => approve(r.id)}>
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
+                          <button type="button" title="Hold" className="rounded-lg p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30" onClick={() => hold(r.id)}>
+                            <PauseCircle className="h-4 w-4" />
+                          </button>
+                          <button type="button" title="Reject" className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => reject(r.id)}>
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

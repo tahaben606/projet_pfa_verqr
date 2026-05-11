@@ -17,7 +17,8 @@ const adminOnly = requireRoles('administrator');
 const archiveReaders = requireRoles(
   'administrator',
   'administrative_agent',
-  'external_verifier'
+  'external_verifier',
+  'beneficiary'
 );
 
 export const apiRouter = Router();
