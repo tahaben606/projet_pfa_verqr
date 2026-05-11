@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { api } from '../lib/api.js';
+import { api, setApiAccessToken } from '../lib/api.js';
 
 const AuthContext = createContext(null);
 
@@ -32,14 +32,19 @@ export function AuthProvider({ children }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setSession(sess);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
     });
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const token = session && typeof session === 'object' ? session.access_token : null;
+    setApiAccessToken(token);
+  }, [session]);
 
   useEffect(() => {
     if (session) {
@@ -58,8 +63,9 @@ export function AuthProvider({ children }) {
     } catch {
       /* audit optional */
     }
-    return data.session;
-  }, []);
+    const profile = await refreshProfile();
+    return { session: data.session, profile };
+  }, [refreshProfile]);
 
   const signUp = useCallback(async (email, password, fullName) => {
     const { data, error } = await supabase.auth.signUp({

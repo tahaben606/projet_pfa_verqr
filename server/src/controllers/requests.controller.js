@@ -1,8 +1,75 @@
 import { supabaseAdmin } from '../lib/supabase.js';
 import { logAudit } from '../services/audit.service.js';
+import { buildFrenchCertificateParagraph } from '../services/attestationCopy.service.js';
 import { buildAttestationPdfBuffer } from '../services/pdf.service.js';
 import { generateQrToken, qrPngBuffer, verificationUrl } from '../services/qr.service.js';
 import { uniqueAttestationId } from '../utils/id.js';
+
+const IDENTITY_FORM_KEYS = ['prenom', 'nom', 'codeInterne', 'structure', 'filiereService', 'dateNaissance'];
+
+async function ensureSelfBeneficiaryId(user) {
+  console.log('ensureSelfBeneficiaryId called with user:', { id: user.id, email: user.email });
+  
+  if (user.email) {
+    const { data: match } = await supabaseAdmin
+      .from('beneficiaries')
+      .select('id')
+      .eq('created_by', user.id)
+      .eq('email', user.email)
+      .maybeSingle();
+    console.log('beneficiary match result:', match);
+    if (match?.id) {
+      console.log('found existing beneficiary by email:', match.id);
+      return match.id;
+    }
+  }
+
+  const { data: fallback } = await supabaseAdmin
+    .from('beneficiaries')
+    .select('id')
+    .eq('created_by', user.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  console.log('fallback beneficiary result:', fallback);
+  if (fallback?.id) {
+    console.log('found existing beneficiary by user:', fallback.id);
+    return fallback.id;
+  }
+
+  console.log('creating new beneficiary...');
+  const { data: newBen, error } = await supabaseAdmin
+    .from('beneficiaries')
+    .insert({
+      created_by: user.id,
+      name: user.full_name || user.email?.split('@')[0] || 'Unknown',
+      email: user.email || null,
+    })
+    .select('id')
+    .single();
+  if (error) {
+    console.error('beneficiary insert error:', error);
+    throw error;
+  }
+  console.log('created new beneficiary:', newBen.id);
+  return newBen.id;
+}
+
+function splitIdentityFromFormPayload(formPayload) {
+  const src = formPayload && typeof formPayload === 'object' ? formPayload : {};
+  const identity = {};
+  const typePayload = { ...src };
+  for (const k of IDENTITY_FORM_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(typePayload, k)) {
+      const v = typePayload[k];
+      if (v !== undefined && v !== null && String(v).trim() !== '') {
+        identity[k] = v;
+      }
+      delete typePayload[k];
+    }
+  }
+  return { identity, typePayload };
+}
 
 async function loadRequestBundle(id) {
   const { data: request, error } = await supabaseAdmin
@@ -54,19 +121,46 @@ export async function listRequests(req, res, next) {
 
 export async function createRequest(req, res, next) {
   try {
-    const { beneficiaryId, attestationTypeId, formPayload } = req.body;
+    const { attestationTypeId, formPayload: rawPayload } = req.body;
+    console.log('createRequest called:', { attestationTypeId, rawPayloadType: typeof rawPayload });
+    
+    const formPayload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+
+    const beneficiaryId = await ensureSelfBeneficiaryId(req.user);
+    console.log('ensureSelfBeneficiaryId result:', beneficiaryId);
+    
+    const { identity, typePayload } = splitIdentityFromFormPayload(formPayload);
+    console.log('split payload:', { identity, typePayloadKeys: Object.keys(typePayload) });
+
+    // Only update email and combined name in database; other fields stay in form_payload for PDF only
+    const benPatch = { email: req.user.email || null };
+    const combinedName = [identity.prenom, identity.nom].filter(Boolean).join(' ').trim();
+    if (combinedName) benPatch.name = combinedName;
+
+    console.log('benPatch:', benPatch);
+    const { error: benUpErr } = await supabaseAdmin.from('beneficiaries').update(benPatch).eq('id', beneficiaryId);
+    if (benUpErr) {
+      console.error('beneficiaries update error:', benUpErr);
+      throw benUpErr;
+    }
+
+    console.log('about to insert request with:', { beneficiary_id: beneficiaryId, attestation_type_id: attestationTypeId, submitted_by: req.user.id, form_payload: typePayload, status: 'pending' });
     const { data, error } = await supabaseAdmin
       .from('attestation_requests')
       .insert({
         beneficiary_id: beneficiaryId,
         attestation_type_id: attestationTypeId,
         submitted_by: req.user.id,
-        form_payload: formPayload || {},
+        form_payload: typePayload,
         status: 'pending',
       })
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error('attestation_requests insert error:', error);
+      throw error;
+    }
+    console.log('request created:', data.id);
     await logAudit({
       userId: req.user.id,
       action: 'request_create',
@@ -76,6 +170,7 @@ export async function createRequest(req, res, next) {
     });
     res.status(201).json(data);
   } catch (e) {
+    console.error('createRequest error:', e);
     next(e);
   }
 }
@@ -114,7 +209,11 @@ export async function updateRequest(req, res, next) {
 export async function approveRequest(req, res, next) {
   try {
     const id = req.params.id;
+    console.log('approveRequest called for id:', id);
+    
     const request = await loadRequestBundle(id);
+    console.log('request loaded:', { id: request.id, status: request.status, typeName: request.attestation_types?.name });
+    
     if (!['pending', 'on_hold'].includes(request.status)) {
       return res.status(400).json({ error: 'Request cannot be approved in current status' });
     }
@@ -122,6 +221,7 @@ export async function approveRequest(req, res, next) {
     const qrToken = generateQrToken();
     const uid = uniqueAttestationId();
     const verifyUrl = verificationUrl(qrToken);
+    console.log('Generated tokens:', { qrToken: qrToken.slice(0, 8) + '...', uid, verifyUrl });
 
     const { data: att, error: ae } = await supabaseAdmin
       .from('attestations')
@@ -135,52 +235,72 @@ export async function approveRequest(req, res, next) {
       })
       .select()
       .single();
-    if (ae) throw ae;
+    if (ae) {
+      console.error('attestations insert error:', ae);
+      throw ae;
+    }
+    console.log('attestation created:', att.id);
 
+    console.log('Generating QR code...');
     const qrBuf = await qrPngBuffer(verifyUrl);
+    console.log('QR code generated, size:', qrBuf.length, 'bytes');
+    
     const typeName = request.attestation_types?.name || 'Attestation';
     const issueDateIso = new Date().toISOString().slice(0, 10);
-    const safeFields = {
-      Department: request.beneficiaries?.department || '',
-      ...Object.fromEntries(
-        Object.entries(request.form_payload || {}).filter(([k]) =>
-          ['purpose', 'program', 'period', 'reference'].some((p) => k.toLowerCase().includes(p))
-        )
-      ),
-    };
+    
+    console.log('Building certificate paragraph...');
+    const certificateBodyFr = buildFrenchCertificateParagraph({
+      typeName,
+      beneficiary: request.beneficiaries,
+      formPayload: request.form_payload || {},
+    });
+    console.log('Certificate paragraph built, length:', certificateBodyFr.length);
 
+    console.log('Building PDF...');
     const pdfBuf = await buildAttestationPdfBuffer({
       qrPng: qrBuf,
       uniqueIdentifier: uid,
       typeName,
       issueDateIso,
+      certificateBodyFr,
       safeFields: {
-        'Attestation type': typeName,
-        ...safeFields,
+        Type: typeName,
+        Identifiant: uid,
       },
     });
+    console.log('PDF built, size:', pdfBuf.length, 'bytes');
 
     const storagePath = `${att.id}.pdf`;
+    console.log('Uploading PDF to storage:', storagePath);
     const { error: upErr } = await supabaseAdmin.storage
       .from('attestations')
       .upload(storagePath, pdfBuf, { contentType: 'application/pdf', upsert: true });
     if (upErr) {
+      console.error('storage upload error:', upErr);
       await supabaseAdmin.from('attestations').delete().eq('id', att.id);
       throw upErr;
     }
+    console.log('PDF uploaded successfully');
 
     const { error: ue } = await supabaseAdmin
       .from('attestations')
       .update({ pdf_storage_path: storagePath })
       .eq('id', att.id);
-    if (ue) throw ue;
+    if (ue) {
+      console.error('attestations update error:', ue);
+      throw ue;
+    }
 
     const { error: re } = await supabaseAdmin
       .from('attestation_requests')
       .update({ status: 'approved', updated_at: new Date().toISOString() })
       .eq('id', request.id);
-    if (re) throw re;
+    if (re) {
+      console.error('attestation_requests update error:', re);
+      throw re;
+    }
 
+    console.log('Logging audit...');
     await logAudit({
       userId: req.user.id,
       action: 'request_approve',
@@ -197,8 +317,10 @@ export async function approveRequest(req, res, next) {
       ip: req.ip,
     });
 
+    console.log('approveRequest completed successfully');
     res.json({ attestationId: att.id, uniqueIdentifier: uid, qrToken });
   } catch (e) {
+    console.error('approveRequest error:', e);
     next(e);
   }
 }

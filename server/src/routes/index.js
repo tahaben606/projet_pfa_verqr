@@ -47,7 +47,7 @@ apiRouter.patch(
   settings.adminSetRole
 );
 
-apiRouter.get('/dashboard/stats', requireAuth, adminOrAgent, dashboard.getStats);
+apiRouter.get('/dashboard', requireAuth, dashboard.getDashboard);
 
 apiRouter.get('/beneficiaries', requireAuth, beneficiaries.listBeneficiaries);
 apiRouter.post(
@@ -111,7 +111,6 @@ apiRouter.get(
 apiRouter.post(
   '/requests',
   requireAuth,
-  body('beneficiaryId').isUUID(),
   body('attestationTypeId').isUUID(),
   body('formPayload').optional().isObject(),
   handleValidation,

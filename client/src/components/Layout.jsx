@@ -51,6 +51,14 @@ export function Layout() {
               <div>
                 <p className="font-display text-sm font-semibold">VerQR</p>
                 <p className="text-xs text-slate-500">Attestations</p>
+                {profile?.role && (
+                  <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                    {profile.role === 'administrator' && 'Administrator'}
+                    {profile.role === 'administrative_agent' && 'Administrative agent'}
+                    {profile.role === 'beneficiary' && 'Beneficiary'}
+                    {profile.role === 'external_verifier' && 'External verifier'}
+                  </p>
+                )}
               </div>
             </div>
             <nav className="space-y-1">

@@ -14,7 +14,7 @@ const schema = z.object({
 });
 
 export function AttestationTypesPage() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const [items, setItems] = useState([]);
   const [modal, setModal] = useState(false);
   const form = useForm({
@@ -28,8 +28,9 @@ export function AttestationTypesPage() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    if (!session) return;
+    load().catch((e) => toast.error(e.message || 'Failed to load types'));
+  }, [session]);
 
   const onSubmit = async (values) => {
     try {

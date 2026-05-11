@@ -12,6 +12,26 @@ const schema = z.object({
   password: z.string().min(6),
 });
 
+/** Paths restricted by role (must match `App.jsx` / `ProtectedRoute`). */
+const RESTRICTED_PREFIXES = [
+  { prefix: '/beneficiaries', roles: ['administrator', 'administrative_agent'] },
+  { prefix: '/attestation-types', roles: ['administrator', 'administrative_agent'] },
+  { prefix: '/audit', roles: ['administrator', 'administrative_agent'] },
+  { prefix: '/archive', roles: ['administrator', 'administrative_agent', 'external_verifier'] },
+];
+
+function postLoginPath(from, role) {
+  if (!role) return '/dashboard';
+  const pathname = (typeof from === 'string' ? from : '/dashboard').split('?')[0] || '/dashboard';
+  if (pathname === '/login' || pathname === '/register') return '/dashboard';
+  for (const { prefix, roles } of RESTRICTED_PREFIXES) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      if (!roles.includes(role)) return '/dashboard';
+    }
+  }
+  return pathname;
+}
+
 export function LoginPage() {
   const { signIn } = useAuth();
   const nav = useNavigate();
@@ -27,9 +47,10 @@ export function LoginPage() {
   const onSubmit = async (values) => {
     setBusy(true);
     try {
-      await signIn(values.email, values.password);
+      const { profile } = await signIn(values.email, values.password);
       toast.success('Signed in');
-      nav(from, { replace: true });
+      const destination = postLoginPath(from, profile?.role);
+      nav(destination, { replace: true });
     } catch (e) {
       toast.error(e.message || 'Sign in failed');
     } finally {

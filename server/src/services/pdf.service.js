@@ -7,7 +7,8 @@ import { env } from '../config/env.js';
  * @param {string} opts.uniqueIdentifier
  * @param {string} opts.typeName
  * @param {string} opts.issueDateIso
- * @param {Record<string, string>} opts.safeFields - non-sensitive display lines
+ * @param {string} [opts.certificateBodyFr] - main French certificate text
+ * @param {Record<string, string>} [opts.safeFields] - optional extra key/value lines
  */
 export function buildAttestationPdfBuffer(opts) {
   return new Promise((resolve, reject) => {
@@ -19,24 +20,29 @@ export function buildAttestationPdfBuffer(opts) {
 
     doc.fontSize(20).text(env.orgName, { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(14).text('Official Attestation', { align: 'center' });
+    doc.fontSize(14).text('Attestation', { align: 'center' });
     doc.moveDown(2);
 
-    doc.fontSize(11).text(`Document ID: ${opts.uniqueIdentifier}`);
-    doc.text(`Type: ${opts.typeName}`);
-    doc.text(`Issue date: ${opts.issueDateIso}`);
+    doc.fontSize(10).text(`Identifiant document : ${opts.uniqueIdentifier}`);
+    doc.text(`Type : ${opts.typeName}`);
+    doc.text(`Date d'émission : ${opts.issueDateIso}`);
     doc.moveDown();
 
-    doc.fontSize(10).text('This attestation was issued through the Smart Attestation Management System.', {
+    if (opts.certificateBodyFr) {
+      doc.fontSize(11).text(opts.certificateBodyFr, { width: 500, align: 'left' });
+      doc.moveDown();
+    }
+
+    doc.fontSize(9).text('Document émis via le système de gestion des attestations.', {
       width: 500,
     });
     doc.moveDown();
 
     if (opts.safeFields && Object.keys(opts.safeFields).length) {
-      doc.fontSize(11).text('Details (non-sensitive):', { underline: true });
+      doc.fontSize(10).text('Références :', { underline: true });
       doc.moveDown(0.3);
       for (const [k, v] of Object.entries(opts.safeFields)) {
-        if (v) doc.fontSize(10).text(`${k}: ${v}`);
+        if (v != null && String(v).length) doc.fontSize(9).text(`${k} : ${v}`);
       }
       doc.moveDown();
     }
@@ -44,9 +50,9 @@ export function buildAttestationPdfBuffer(opts) {
     const qrTop = Math.min(doc.y + 20, doc.page.height - 320);
     doc.image(opts.qrPng, doc.page.width / 2 - 80, qrTop, { width: 160, height: 160 });
     doc.y = qrTop + 180;
-    doc.fontSize(9).text('Scan the QR code to verify authenticity online.', { align: 'center' });
+    doc.fontSize(9).text("Scannez le code QR pour vérifier l'authenticité en ligne.", { align: 'center' });
     doc.moveDown(2);
-    doc.fontSize(10).text('Authorized signature: ___________________________', { align: 'left' });
+    doc.fontSize(10).text('Signature autorisée : ___________________________', { align: 'left' });
 
     doc.end();
   });
