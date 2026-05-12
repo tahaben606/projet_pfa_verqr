@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext.jsx';
-import { isSupabaseConfigured } from '../lib/supabase.js';
+import { isSupabaseConfigured, isUnsupportedSupabaseAnonKey } from '../lib/supabase.js';
 import { ShieldCheck } from 'lucide-react';
 
 const schema = z
@@ -47,7 +47,16 @@ export function RegisterPage() {
           </div>
           <h1 className="font-display text-2xl font-bold">Create account</h1>
           <p className="mt-1 text-sm text-slate-500">You will be assigned the Beneficiary role by default</p>
-          {!isSupabaseConfigured && (
+          {isUnsupportedSupabaseAnonKey && (
+            <div
+              role="alert"
+              className="mt-4 w-full rounded-xl border border-red-200 bg-red-50 p-3 text-left text-xs text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100"
+            >
+              Replace <code className="rounded bg-black/5 px-1">sb_publishable_*</code> with the{' '}
+              <strong>anon JWT</strong> (<code className="rounded bg-black/5 px-1">eyJ…</code>) from Supabase → Settings → API, as <code className="rounded bg-black/5 px-1">VITE_SUPABASE_ANON_KEY</code>, then redeploy.
+            </div>
+          )}
+          {!isSupabaseConfigured && !isUnsupportedSupabaseAnonKey && (
             <div
               role="alert"
               className="mt-4 w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
