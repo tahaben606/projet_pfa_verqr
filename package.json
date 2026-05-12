@@ -1,0 +1,11 @@
+{
+  "name": "verqr-monorepo",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "build": "npm run build -w verqr-client"
+  }
+}
