@@ -13,7 +13,11 @@ dotenv.config();
 
 const REQUIRED = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY'];
 
-function validateEnv() {
+function trimEnv(name) {
+  return (process.env[name] || '').trim();
+}
+
+export function validateEnv() {
   const missing = REQUIRED.filter((name) => !process.env[name]?.trim());
   if (missing.length === 0) return;
 
@@ -27,21 +31,21 @@ function validateEnv() {
     ...REQUIRED.map((k) => `  - ${k}`),
     '',
     'Supabase: Project Settings → API — URL, anon (public) key, and service_role key.',
+    '',
+    'On Vercel: Project → Settings → Environment Variables — add SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY (and CORS_ORIGIN / PUBLIC_APP_URL).',
   ];
   throw new Error(lines.join('\n'));
 }
 
-validateEnv();
-
 export const env = {
   port: Number(process.env.PORT || 4000),
   nodeEnv: process.env.NODE_ENV || 'development',
-  supabaseUrl: process.env.SUPABASE_URL.trim(),
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY.trim(),
+  supabaseUrl: trimEnv('SUPABASE_URL'),
+  supabaseServiceRoleKey: trimEnv('SUPABASE_SERVICE_ROLE_KEY'),
   /** Same as client `VITE_SUPABASE_ANON_KEY` — used only to validate browser access tokens via `auth.getUser`. */
-  supabaseAnonKey: process.env.SUPABASE_ANON_KEY.trim(),
+  supabaseAnonKey: trimEnv('SUPABASE_ANON_KEY'),
   /** @deprecated Auth uses supabaseAdmin.auth.getUser(token); kept only if you add JWT-based code later */
-  supabaseJwtSecret: (process.env.SUPABASE_JWT_SECRET || '').trim(),
+  supabaseJwtSecret: trimEnv('SUPABASE_JWT_SECRET'),
   publicAppUrl: (process.env.PUBLIC_APP_URL || 'http://localhost:5173').replace(/\/$/, ''),
   orgName: process.env.ORG_NAME || 'Official Attestation',
   orgLogoUrl: process.env.ORG_LOGO_URL || '',
