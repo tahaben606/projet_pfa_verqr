@@ -1,6 +1,10 @@
 {
   "name": "verqr-monorepo",
   "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^4.21.2"
+  },
   "engines": {
     "node": "20.x"
   },

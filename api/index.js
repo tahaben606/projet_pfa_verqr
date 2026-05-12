@@ -1,40 +1,24 @@
+import express from 'express';
 import { validateEnv } from '../server/src/config/env.js';
 
-let appPromise;
+/** One Express app exported for @vercel/node (no wrapped handler → fewer bundler edge cases). */
+let app;
 
-function getApp() {
-  if (!appPromise) {
-    appPromise = (async () => {
-      try {
-        validateEnv();
-        const { createApp } = await import('../server/src/app.js');
-        return createApp();
-      } catch (err) {
-        console.error('[api] failed to load Express app:', err);
-        return function configurationErrorHandler(req, res) {
-          if (res.headersSent) return;
-          res.status(503).json({
-            ok: false,
-            error: 'Server configuration error',
-            detail: String(err?.message || err),
-          });
-        };
-      }
-    })();
-  }
-  return appPromise;
-}
-
-export default function handler(req, res) {
-  getApp()
-    .then((app) => app(req, res))
-    .catch((err) => {
-      if (!res.headersSent) {
-        res.status(503).json({
-          ok: false,
-          error: 'Server error',
-          detail: String(err?.message || err),
-        });
-      }
+try {
+  validateEnv();
+  const { createApp } = await import('../server/src/app.js');
+  app = createApp();
+} catch (err) {
+  console.error('[api] bootstrap failed:', err);
+  app = express();
+  app.use((req, res) => {
+    if (res.headersSent) return;
+    res.status(503).json({
+      ok: false,
+      error: 'Server configuration error',
+      detail: String(err?.message || err),
     });
+  });
 }
+
+export default app;

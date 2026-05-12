@@ -1,5 +1,5 @@
 {
-  "installCommand": "rm -rf node_modules client/node_modules server/node_modules && NPM_CONFIG_PRODUCTION=false npm ci",
+  "installCommand": "rm -rf node_modules client/node_modules server/node_modules && npm ci --include=dev",
   "buildCommand": "npm exec -w verqr-client -- vite build",
   "outputDirectory": "client/dist",
   "rewrites": [
