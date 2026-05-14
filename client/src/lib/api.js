@@ -35,8 +35,11 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
-    const msg =
-      err.response?.data?.detail || err.response?.data?.error || err.message || 'Request failed';
+    let msg = err.response?.data?.detail || err.response?.data?.error || err.message || 'Request failed';
+    if (typeof msg === 'object' && msg !== null) {
+      msg = msg.message || JSON.stringify(msg);
+    }
     return Promise.reject(new Error(msg));
   }
 );
+
