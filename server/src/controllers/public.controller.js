@@ -47,7 +47,7 @@ export async function verifyByToken(req, res, next) {
     if (row.status === 'revoked') {
       return res.json({
         state: 'revoked',
-        message: 'This attestation has been revoked by the issuer.',
+        message: 'This attestation has been revoked by the admin.',
         documentIdSuffix: row.unique_identifier.slice(-6),
         typeName,
       });

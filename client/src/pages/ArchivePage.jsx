@@ -65,23 +65,34 @@ export function ArchivePage() {
               const ben = req?.beneficiaries;
               const beneficiaryName = Array.isArray(ben) ? ben[0]?.name : ben?.name;
               return (
-                <tr key={a.id}>
+                <tr key={a.id} className={a.status === 'revoked' ? 'bg-red-50/30 dark:bg-red-950/10' : ''}>
                   <td className="px-4 py-3 font-mono text-xs">{a.unique_identifier}</td>
                   <td className="px-4 py-3">{typeName || '—'}</td>
                   <td className="px-4 py-3">{beneficiaryName || '—'}</td>
-                  <td className="px-4 py-3 capitalize">{a.status}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      a.status === 'active' 
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                    }`}>
+                      {a.status === 'active' ? 'Active' : 'Refusée / Révoquée'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-slate-500">{new Date(a.issued_at).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right">
-                    <button type="button" className="mr-2 inline-flex rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => download(a.id)} title="Download">
-                      <Download className="h-4 w-4" />
-                    </button>
-                    {isStaff && a.status === 'active' && (
-                      <button type="button" className="inline-flex rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => revoke(a.id)} title="Revoke">
-                        <Ban className="h-4 w-4" />
+                    <div className="flex justify-end gap-1">
+                      <button type="button" className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => download(a.id)} title="Download PDF">
+                        <Download className="h-4 w-4" />
                       </button>
-                    )}
+                      {isStaff && a.status === 'active' && (
+                        <button type="button" className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => revoke(a.id)} title="Revoke (Refuse)">
+                          <Ban className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
+
               );
             })}
           </tbody>
