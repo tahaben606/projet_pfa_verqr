@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Cell } from 'recharts';
 import {
   ClipboardList,
   CheckCircle2,
@@ -48,6 +48,16 @@ function RoleBadge({ role }) {
     </span>
   );
 }
+
+const CHART_COLORS = {
+  Approved: '#22c55e',
+  Pending: '#94a3b8',
+  'On hold': '#eab308',
+  Rejected: '#ef4444',
+  Active: '#22c55e',
+  Revoked: '#ef4444',
+  Expired: '#94a3b8',
+};
 
 export function DashboardPage() {
   const { profile, session } = useAuth();
@@ -184,7 +194,11 @@ export function DashboardPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Bar dataKey="v" fill="#3293fa" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="v" radius={[6, 6, 0, 0]}>
+                      {staffChart.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[entry.name] || '#3293fa'} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -228,7 +242,11 @@ export function DashboardPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Bar dataKey="v" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="v" radius={[6, 6, 0, 0]}>
+                      {beneficiaryChart.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[entry.name] || '#6366f1'} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -279,7 +297,11 @@ export function DashboardPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Bar dataKey="v" fill="#0d9488" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="v" radius={[6, 6, 0, 0]}>
+                      {verifierChart.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[entry.name] || '#0d9488'} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>

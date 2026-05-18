@@ -4,6 +4,7 @@ import { buildFrenchCertificateParagraph } from '../services/attestationCopy.ser
 import { buildAttestationPdfBuffer } from '../services/pdf.service.js';
 import { generateQrToken, qrPngBuffer, verificationUrl } from '../services/qr.service.js';
 import { uniqueAttestationId } from '../utils/id.js';
+import { sendApprovalEmail } from '../services/email.service.js';
 
 const IDENTITY_FORM_KEYS = ['prenom', 'nom', 'codeInterne', 'structure', 'filiereService', 'dateNaissance'];
 
@@ -298,6 +299,16 @@ export async function approveRequest(req, res, next) {
     if (re) {
       console.error('attestation_requests update error:', re);
       throw re;
+    }
+
+    if (request.beneficiaries?.email) {
+      const beneficiaryName = request.beneficiaries.name || 'Beneficiary';
+      const attestationTypeName = request.attestation_types?.name || 'Attestation';
+      console.log('Sending approval email to:', request.beneficiaries.email);
+      // Fire and forget email notification
+      sendApprovalEmail(request.beneficiaries.email, beneficiaryName, attestationTypeName).catch(err => {
+        console.error('Failed to send approval email asynchronously:', err);
+      });
     }
 
     console.log('Logging audit...');

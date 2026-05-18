@@ -97,3 +97,10 @@ Vite proxies `/api` → `http://localhost:4000` (see `client/vite.config.js`).
 | `client/` | `npm run build` | Production bundle |
 | `server/` | `npm run dev` | Express with `--watch` |
 | `server/` | `npm start` | Production server |
+
+## Documentation
+
+Pour plus de détails sur les composants spécifiques :
+- [Dashboard & Graphiques](file:///c:/Users/Med%20Amine/Documents/GitHub/projet_pfa_verqr/dashboard.md) : Explications sur le tableau de bord et Recharts.
+- [Sécurisation](file:///c:/Users/Med%20Amine/Documents/GitHub/projet_pfa_verqr/securisation.md) : Protocoles de sécurité, DDoS et protection PDF.
+- [Gestion des PDF](file:///c:/Users/Med%20Amine/Documents/GitHub/projet_pfa_verqr/pdf.md) : Détails sur la génération et les templates PDF.

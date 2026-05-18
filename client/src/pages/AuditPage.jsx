@@ -15,7 +15,7 @@ export function AuditPage() {
         <p className="text-sm text-slate-500">Security-relevant actions across the platform</p>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800">
             <tr>
