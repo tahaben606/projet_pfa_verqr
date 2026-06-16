@@ -10,7 +10,7 @@ const IDENTITY_FORM_KEYS = ['prenom', 'nom', 'codeInterne', 'structure', 'filier
 
 async function ensureSelfBeneficiaryId(user) {
   console.log('ensureSelfBeneficiaryId called with user:', { id: user.id, email: user.email });
-  
+
   if (user.email) {
     const { data: match } = await supabaseAdmin
       .from('beneficiaries')
@@ -124,12 +124,12 @@ export async function createRequest(req, res, next) {
   try {
     const { attestationTypeId, formPayload: rawPayload } = req.body;
     console.log('createRequest called:', { attestationTypeId, rawPayloadType: typeof rawPayload });
-    
+
     const formPayload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
 
     const beneficiaryId = await ensureSelfBeneficiaryId(req.user);
     console.log('ensureSelfBeneficiaryId result:', beneficiaryId);
-    
+
     const { identity, typePayload } = splitIdentityFromFormPayload(formPayload);
     console.log('split payload:', { identity, typePayloadKeys: Object.keys(typePayload) });
 
@@ -211,44 +211,62 @@ export async function approveRequest(req, res, next) {
   try {
     const id = req.params.id;
     console.log('approveRequest called for id:', id);
-    
+
     const request = await loadRequestBundle(id);
     console.log('request loaded:', { id: request.id, status: request.status, typeName: request.attestation_types?.name });
-    
-    if (!['pending', 'on_hold'].includes(request.status)) {
+
+    // Check for an existing attestation (handles retry after partial failure)
+    const { data: existingAtt } = await supabaseAdmin
+      .from('attestations')
+      .select('*')
+      .eq('request_id', request.id)
+      .maybeSingle();
+
+    if (!existingAtt && !['pending', 'on_hold'].includes(request.status)) {
       return res.status(400).json({ error: 'Request cannot be approved in current status' });
     }
 
-    const qrToken = generateQrToken();
-    const uid = uniqueAttestationId();
-    const verifyUrl = verificationUrl(qrToken);
-    console.log('Generated tokens:', { qrToken: qrToken.slice(0, 8) + '...', uid, verifyUrl });
+    let att = existingAtt;
 
-    const { data: att, error: ae } = await supabaseAdmin
-      .from('attestations')
-      .insert({
-        request_id: request.id,
-        unique_identifier: uid,
-        qr_token: qrToken,
-        status: 'active',
-        issued_by: req.user.id,
-        pdf_storage_path: null,
-      })
-      .select()
-      .single();
-    if (ae) {
-      console.error('attestations insert error:', ae);
-      throw ae;
+    if (!att) {
+      const qrToken = generateQrToken();
+      const uid = uniqueAttestationId();
+      const verifyUrl = verificationUrl(qrToken);
+      console.log('Generated tokens:', { qrToken: qrToken.slice(0, 8) + '...', uid, verifyUrl });
+
+      const { data: newAtt, error: ae } = await supabaseAdmin
+        .from('attestations')
+        .insert({
+          request_id: request.id,
+          unique_identifier: uid,
+          qr_token: qrToken,
+          status: 'active',
+          issued_by: req.user.id,
+          pdf_storage_path: null,
+        })
+        .select()
+        .single();
+      if (ae) {
+        console.error('attestations insert error:', ae);
+        throw ae;
+      }
+      att = newAtt;
+      console.log('attestation created:', att.id);
+    } else {
+      console.log('reusing existing attestation:', att.id);
     }
-    console.log('attestation created:', att.id);
+
+    const uid = att.unique_identifier;
+    const qrToken = att.qr_token;
+    const verifyUrl = verificationUrl(qrToken);
 
     console.log('Generating QR code...');
     const qrBuf = await qrPngBuffer(verifyUrl);
     console.log('QR code generated, size:', qrBuf.length, 'bytes');
-    
+
     const typeName = request.attestation_types?.name || 'Attestation';
     const issueDateIso = new Date().toISOString().slice(0, 10);
-    
+
     console.log('Building certificate paragraph...');
     const certificateBodyFr = buildFrenchCertificateParagraph({
       typeName,
@@ -278,7 +296,10 @@ export async function approveRequest(req, res, next) {
       .upload(storagePath, pdfBuf, { contentType: 'application/pdf', upsert: true });
     if (upErr) {
       console.error('storage upload error:', upErr);
-      await supabaseAdmin.from('attestations').delete().eq('id', att.id);
+      // Only clean up the attestation row if it was freshly created (not a reused existing one)
+      if (!existingAtt) {
+        await supabaseAdmin.from('attestations').delete().eq('id', att.id);
+      }
       throw upErr;
     }
     console.log('PDF uploaded successfully');
